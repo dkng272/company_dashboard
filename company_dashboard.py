@@ -7,7 +7,10 @@ from plotly.subplots import make_subplots
 
 #%% Data preparation
 df = pd.read_csv('FA_processed.csv')
+val = pd.read_csv('Val_processed.csv')
+mcap = pd.read_csv('MktCap_processed.csv')
 
+# List creation
 IS = ['Net_Revenue','Gross_Profit', 'EBIT', 'EBITDA',  'NPATMI']
 MARGIN = ['Gross_Margin', 'EBIT_Margin', 'EBITDA_Margin','NPAT_Margin']
 BS = ['Total_Asset', 'Cash', 'Cash_Equivalent', 'Inventory', 'Account_Receivable','Tangible_Fixed_Asset', 
@@ -31,7 +34,6 @@ IS_ORDER = [
     "NPATMI_Gr",
     "NPAT_Margin"
 ]
-
 
 
 #%% Financial data table
@@ -232,6 +234,30 @@ def create_margin_plots(df, ticker: str):
     fig.update_yaxes(ticksuffix="%")
     return fig
 
+#%% Extract key data for displays
+def extract_key_data(df1, df2, ticker):
+    val = df1.copy()
+    mcap = df2.copy()
+    key_data = {}
+    for col in ['P/E', 'P/B', 'EV/EBITDA']:
+        vals = val[(val['TICKER'] == ticker)].sort_values('TRADE_DATE', ascending=False)[col]
+        vals = pd.to_numeric(vals, errors='coerce')
+        latest_val = vals[~vals.isna()].iloc[0] if not vals[~vals.isna()].empty else None
+        key_data[col] = latest_val
+    mcap_vals = mcap[mcap['TICKER'] == ticker]['CUR_MKT_CAP']
+    key_data['M_CAP'] = mcap_vals.iloc[0] if not mcap_vals.empty else None
+    return key_data
+
+
+# Debug ev/ebitda
+ticker = 'MWG'
+key_data = {}
+key_data['P/E'] = val[(val['TICKER'] == ticker) & (val['TRADE_DATE'] == val['TRADE_DATE'].max())]['P/E'].values 
+key_data['P/B'] = val[(val['TICKER'] == ticker) & (val['TRADE_DATE'] == val['TRADE_DATE'].max())]['P/B'].values 
+key_data['EV/EBITDA'] = val[(val['TICKER'] == ticker) & (val['TRADE_DATE'] == val['TRADE_DATE'].max())]['EV/EBITDA'].values
+key_data['M_CAP'] = mcap[mcap['TICKER'] == ticker]['CUR_MKT_CAP'].values 
+
+
 #%%
 st.set_page_config(layout="wide", page_title="Company Dashboard")
 
@@ -242,6 +268,21 @@ selected_ticker = st.selectbox("Select Ticker", df['TICKER'].unique())
 # Add a year selector
 years = sorted(df['YEAR'].unique())
 start_year = st.selectbox("Select Start Year", years, index=2) #defaulted to 2020
+
+# Add boxes to display most recent P/E, P/B, EV/EBITDA, and market cap level
+key_data = extract_key_data(val,mcap, selected_ticker)
+
+# Display key data
+st.subheader("Key Statistics")
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.metric("Market Cap", f"{key_data['M_CAP']:,.0f}" if key_data['M_CAP'] is not None else "N/A")
+with col2:
+    st.metric("P/E Ratio", f"{key_data['P/E']:,.2f}" if key_data['P/E'] is not None else "N/A")
+with col3:
+    st.metric("P/B Ratio", f"{key_data['P/B']:,.2f}" if key_data['P/B'] is not None else "N/A")
+with col4:
+    st.metric("EV/EBITDA", f"{key_data['EV/EBITDA']:,.2f}" if key_data['EV/EBITDA'] is not None else "N/A")
 
 # Filter dataframe based on selected start year
 df = df[df['YEAR'] >= start_year]
