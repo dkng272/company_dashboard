@@ -276,13 +276,13 @@ key_data = extract_key_data(val,mcap, selected_ticker)
 st.subheader("Key Statistics")
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.metric("Market Cap", f"{key_data['M_CAP']:,.0f}" if key_data['M_CAP'] is not None else "N/A")
+    st.metric("Market Cap", f"{key_data['M_CAP']:,.0f}" if key_data['M_CAP'] is not None else "N/A", border = True)
 with col2:
-    st.metric("P/E Ratio", f"{key_data['P/E']:,.2f}" if key_data['P/E'] is not None else "N/A")
+    st.metric("P/E Ratio", f"{key_data['P/E']:,.2f}" if key_data['P/E'] is not None else "N/A", border = True)
 with col3:
-    st.metric("P/B Ratio", f"{key_data['P/B']:,.2f}" if key_data['P/B'] is not None else "N/A")
+    st.metric("P/B Ratio", f"{key_data['P/B']:,.2f}" if key_data['P/B'] is not None else "N/A", border = True)
 with col4:
-    st.metric("EV/EBITDA", f"{key_data['EV/EBITDA']:,.2f}" if key_data['EV/EBITDA'] is not None else "N/A")
+    st.metric("EV/EBITDA", f"{key_data['EV/EBITDA']:,.2f}" if key_data['EV/EBITDA'] is not None else "N/A", border = True)
 
 # Filter dataframe based on selected start year
 df = df[df['YEAR'] >= start_year]
