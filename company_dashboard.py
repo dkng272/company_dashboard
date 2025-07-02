@@ -10,6 +10,8 @@ df = pd.read_csv('FA_processed.csv')
 val = pd.read_csv('Val_processed.csv')
 mcap = pd.read_csv('MktCap_processed.csv')
 
+val = val[val.TRADE_DATE >= '2025-01-01']
+
 # List creation
 IS = ['Net_Revenue','Gross_Profit', 'EBIT', 'EBITDA',  'NPATMI']
 MARGIN = ['Gross_Margin', 'EBIT_Margin', 'EBITDA_Margin','NPAT_Margin']
