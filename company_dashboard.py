@@ -1,7 +1,6 @@
 #%%
 import streamlit as st
 import pandas as pd
-from typing import Literal
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -242,26 +241,40 @@ def create_pe_pb_plot(df, ticker):
     pe_data = pe_data.ffill()  # Forward fill to handle missing values
     pb_data = df_ticker.pivot(index='TRADE_DATE', columns='TICKER', values='P/B')
     pb_data = pb_data.ffill()  # Forward fill to handle missing values
+    ps_data = df_ticker.pivot(index='TRADE_DATE', columns='TICKER', values='P/S')
+    ps_data = ps_data.ffill()  # Forward fill to handle missing values
+
+    # Calculate mean and standard deviation
     pe_mean = pe_data[ticker].mean()
     pe_std = pe_data[ticker].std()
     pb_mean = pb_data[ticker].mean()
     pb_std = pb_data[ticker].std()
+    ps_mean = ps_data[ticker].mean()
+    ps_std = ps_data[ticker].std()
 
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.2,
-                        subplot_titles=(f"{ticker} P/E Ratio", f"{ticker} P/B Ratio"))
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05,
+                        subplot_titles=(f"{ticker} P/E Ratio", f"{ticker} P/B Ratio", f"{ticker} P/S Ratio"))
 
+    #fig P/E
     fig.add_trace(go.Scatter(x=pe_data.index, y=pe_data[ticker], mode='lines', name='P/E', line=dict(color='green')),
                   row=1, col=1)
     fig.add_hline(y=pe_mean, line_dash="dash", line_color="red", row=1, col=1, line_width=1)
     fig.add_hline(y=pe_mean + pe_std, line_dash="dash", line_color="grey", row=1, col=1, line_width=1)
     fig.add_hline(y=pe_mean - pe_std, line_dash="dash", line_color="grey", row=1, col=1, line_width=1)
+    # fig P/B
     fig.add_trace(go.Scatter(x=pb_data.index, y=pb_data[ticker], mode='lines', name='P/B', line=dict(color='green')),
                   row=2, col=1)
     fig.add_hline(y=pb_mean, line_dash="dash", line_color="red", row=2, col=1, line_width=1)
     fig.add_hline(y=pb_mean + pb_std, line_dash="dash", line_color="grey", row=2, col=1, line_width=1)
     fig.add_hline(y=pb_mean - pb_std, line_dash="dash", line_color="grey", row=2, col=1, line_width=1)
+    # fig P/S
+    fig.add_trace(go.Scatter(x=ps_data.index, y=ps_data[ticker], mode='lines', name='P/S', line=dict(color='green')),
+                  row=3, col=1) 
+    fig.add_hline(y=ps_mean, line_dash="dash", line_color="red", row=3, col=1, line_width=1)
+    fig.add_hline(y=ps_mean + ps_std, line_dash="dash", line_color="grey", row=3, col=1, line_width=1)
+    fig.add_hline(y=ps_mean - ps_std, line_dash="dash", line_color="grey", row=3, col=1, line_width=1)  
 
-    fig.update_layout(height=800)
+    fig.update_layout(height=1200)
     return fig
 
 #%% Extract key data for displays
@@ -284,19 +297,24 @@ def extract_key_data(df1, df2, ticker):
 st.set_page_config(layout = 'wide', page_title="Company Dashboard")
 
 # Title
-st.title("Financial Dashboard")
-selected_ticker = st.selectbox("Select Ticker", df['TICKER'].unique())
+st.title("Company Dashboard")
 
+# Side bar for ticker selection
+st.sidebar.header('Ticker Selection')
+selected_ticker = st.sidebar.selectbox("Select Ticker", df['TICKER'].unique())
 # Add a year selector
 years = sorted(df['YEAR'].unique())
-start_year = st.selectbox("Select Start Year", years, index=2) #defaulted to 2020
+start_year = st.sidebar.selectbox("Select Start Year", years, index=2) #defaulted to 2020
+
+# Display selected ticker as header
+st.header(f"Data for {selected_ticker}")
 
 # Add boxes to display most recent P/E, P/B, EV/EBITDA, and market cap level
 key_data = extract_key_data(val,mcap, selected_ticker)
 
 # Display key data
 st.subheader("Key Statistics")
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     st.metric("Market Cap", f"{key_data['M_CAP']:,.0f}" if key_data['M_CAP'] is not None else "N/A", border = True)
 with col2:
@@ -305,6 +323,11 @@ with col3:
     st.metric("P/B Ratio", f"{key_data['P/B']:,.2f}" if key_data['P/B'] is not None else "N/A", border = True)
 with col4:
     st.metric("EV/EBITDA", f"{key_data['EV/EBITDA']:,.2f}" if key_data['EV/EBITDA'] is not None else "N/A", border = True)
+with col5:
+    # Format the latest TRADE_DATE as 'Mon-Day-Year'
+    latest_date = pd.to_datetime(val['TRADE_DATE'].max())
+    formatted_date = latest_date.strftime('%b-%d-%Y') if not pd.isnull(latest_date) else "N/A"
+    st.metric("Last Data", formatted_date, border=True)
 
 # Filter dataframe based on selected start year
 df = df[df['YEAR'] >= start_year]
@@ -313,31 +336,34 @@ df = df[df['YEAR'] >= start_year]
 fig_FA = create_FA_plots(df, selected_ticker)
 fig_GR = create_gr_plots(df, selected_ticker)
 fig_MARGIN = create_margin_plots(df, selected_ticker)
-fig_val = create_pe_pb_plot(val, selected_ticker)
 
-with st.expander("Income Statement Graph", expanded=True):
+# Tab for 3 financial graphs
+tab1, tab2, tab3 = st.tabs(["IS", "Growth", "Margin"])
+with tab1:
     st.plotly_chart(fig_FA)
-
-with st.expander("Growth Graph", expanded=False):
+with tab2:
     st.plotly_chart(fig_GR)
-
-with st.expander("Margin Graph", expanded=False):
+with tab3:
     st.plotly_chart(fig_MARGIN)
 
-with st.expander("P/E & P/B Ratios", expanded=True):
+# Valuation Plots
+fig_val = create_pe_pb_plot(val, selected_ticker)
+with st.expander("Valuation Ratios", expanded=True):
     st.plotly_chart(fig_val, key="pe_chart")
 
-# Table creation and UI elements
+# Financial Tables:
 fs_table_result = create_fs_table_main(df, selected_ticker)
 bs_table_result = create_bs_table(df, selected_ticker)
 cf_table_result = create_cf_table(df, selected_ticker)
 
-with st.expander("Show Financial Tables", expanded=True):
+tab1, tab2, tab3 = st.tabs(["Financial Summary", "Balance Sheet", "Cash Flow"])
+
+with tab1:
     st.subheader("Financial Summary Table (IS, Growth, Margin)")
     st.dataframe(fs_table_result)
-
+with tab2:
     st.subheader("Balance Sheet Table")
     st.dataframe(bs_table_result)
-
+with tab3:
     st.subheader("Cash Flow Table")
     st.dataframe(cf_table_result)
