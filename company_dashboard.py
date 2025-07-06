@@ -10,8 +10,6 @@ df = pd.read_csv('FA_processed.csv')
 val = pd.read_csv('Val_processed.csv')
 mcap = pd.read_csv('MktCap_processed.csv')
 
-val = val[val.TRADE_DATE >= '2025-01-01']
-
 # List creation
 IS = ['Net_Revenue','Gross_Profit', 'EBIT', 'EBITDA',  'NPATMI']
 MARGIN = ['Gross_Margin', 'EBIT_Margin', 'EBITDA_Margin','NPAT_Margin']
@@ -236,6 +234,36 @@ def create_margin_plots(df, ticker: str):
     fig.update_yaxes(ticksuffix="%")
     return fig
 
+# Plot P/E and P/B with dotted line for average and +1 and -1 standard deviation
+def create_pe_pb_plot(df, ticker):
+    df_temp = df.copy()
+    df_ticker = df_temp[df_temp['TICKER'] == ticker]
+    pe_data = df_ticker.pivot(index='TRADE_DATE', columns='TICKER', values='P/E')
+    pe_data = pe_data.ffill()  # Forward fill to handle missing values
+    pb_data = df_ticker.pivot(index='TRADE_DATE', columns='TICKER', values='P/B')
+    pb_data = pb_data.ffill()  # Forward fill to handle missing values
+    pe_mean = pe_data[ticker].mean()
+    pe_std = pe_data[ticker].std()
+    pb_mean = pb_data[ticker].mean()
+    pb_std = pb_data[ticker].std()
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.2,
+                        subplot_titles=(f"{ticker} P/E Ratio", f"{ticker} P/B Ratio"))
+
+    fig.add_trace(go.Scatter(x=pe_data.index, y=pe_data[ticker], mode='lines', name='P/E', line=dict(color='green')),
+                  row=1, col=1)
+    fig.add_hline(y=pe_mean, line_dash="dash", line_color="red", row=1, col=1, line_width=1)
+    fig.add_hline(y=pe_mean + pe_std, line_dash="dash", line_color="grey", row=1, col=1, line_width=1)
+    fig.add_hline(y=pe_mean - pe_std, line_dash="dash", line_color="grey", row=1, col=1, line_width=1)
+    fig.add_trace(go.Scatter(x=pb_data.index, y=pb_data[ticker], mode='lines', name='P/B', line=dict(color='green')),
+                  row=2, col=1)
+    fig.add_hline(y=pb_mean, line_dash="dash", line_color="red", row=2, col=1, line_width=1)
+    fig.add_hline(y=pb_mean + pb_std, line_dash="dash", line_color="grey", row=2, col=1, line_width=1)
+    fig.add_hline(y=pb_mean - pb_std, line_dash="dash", line_color="grey", row=2, col=1, line_width=1)
+
+    fig.update_layout(height=800)
+    return fig
+
 #%% Extract key data for displays
 def extract_key_data(df1, df2, ticker):
     val = df1.copy()
@@ -251,17 +279,9 @@ def extract_key_data(df1, df2, ticker):
     return key_data
 
 
-# Debug ev/ebitda
-ticker = 'MWG'
-key_data = {}
-key_data['P/E'] = val[(val['TICKER'] == ticker) & (val['TRADE_DATE'] == val['TRADE_DATE'].max())]['P/E'].values 
-key_data['P/B'] = val[(val['TICKER'] == ticker) & (val['TRADE_DATE'] == val['TRADE_DATE'].max())]['P/B'].values 
-key_data['EV/EBITDA'] = val[(val['TICKER'] == ticker) & (val['TRADE_DATE'] == val['TRADE_DATE'].max())]['EV/EBITDA'].values
-key_data['M_CAP'] = mcap[mcap['TICKER'] == ticker]['CUR_MKT_CAP'].values 
-
 
 #%%
-st.set_page_config(layout="wide", page_title="Company Dashboard")
+st.set_page_config(layout = 'wide', page_title="Company Dashboard")
 
 # Title
 st.title("Financial Dashboard")
@@ -289,12 +309,30 @@ with col4:
 # Filter dataframe based on selected start year
 df = df[df['YEAR'] >= start_year]
 
+# Add plots below the tables
+fig_FA = create_FA_plots(df, selected_ticker)
+fig_GR = create_gr_plots(df, selected_ticker)
+fig_MARGIN = create_margin_plots(df, selected_ticker)
+fig_val = create_pe_pb_plot(val, selected_ticker)
+
+with st.expander("Income Statement Graph", expanded=True):
+    st.plotly_chart(fig_FA)
+
+with st.expander("Growth Graph", expanded=False):
+    st.plotly_chart(fig_GR)
+
+with st.expander("Margin Graph", expanded=False):
+    st.plotly_chart(fig_MARGIN)
+
+with st.expander("P/E & P/B Ratios", expanded=True):
+    st.plotly_chart(fig_val, key="pe_chart")
+
 # Table creation and UI elements
 fs_table_result = create_fs_table_main(df, selected_ticker)
 bs_table_result = create_bs_table(df, selected_ticker)
 cf_table_result = create_cf_table(df, selected_ticker)
 
-with st.expander("Show Financial Tables"):
+with st.expander("Show Financial Tables", expanded=True):
     st.subheader("Financial Summary Table (IS, Growth, Margin)")
     st.dataframe(fs_table_result)
 
@@ -303,18 +341,3 @@ with st.expander("Show Financial Tables"):
 
     st.subheader("Cash Flow Table")
     st.dataframe(cf_table_result)
-
-# Add plots below the tables
-fig_FA = create_FA_plots(df, selected_ticker)
-fig_GR = create_gr_plots(df, selected_ticker)
-fig_MARGIN = create_margin_plots(df, selected_ticker)
-
-with st.expander("Show Graphs"):
-    st.subheader("Income Statement")
-    st.plotly_chart(fig_FA)
-
-    st.subheader("Growth")
-    st.plotly_chart(fig_GR)
-
-    st.subheader("Margin")
-    st.plotly_chart(fig_MARGIN)

@@ -30,7 +30,7 @@ df.to_csv('Company Dashboard Project/FA_processed.csv', index=False)
 #%% Load and clean valuation data
 def load_valuation_data():
     # Load and prepare valuation metrics
-    df = pd.read_csv('G:\My Drive\Python\DAILY DATA\VALUATION.csv')
+    df = pd.read_csv('/Users/duynguyen/Library/CloudStorage/GoogleDrive-nkduy96@gmail.com/My Drive/Python/DAILY DATA/VALUATION.csv')
     df['TICKER'] = df['PRIMARYSECID'].str[:3]
     df['TRADE_DATE'] = pd.to_datetime(df['TRADE_DATE'])
     df = df.drop(columns=['PRIMARYSECID']).sort_values(by=['TICKER', 'TRADE_DATE']).reset_index(drop=True)
@@ -43,7 +43,7 @@ def load_valuation_data():
     }, inplace=True)
 
     # Load and merge EV/EBITDA data
-    ebitda = pd.read_csv('G:\My Drive\Python\DAILY DATA\EVEBITDA.csv')
+    ebitda = pd.read_csv('/Users/duynguyen/Library/CloudStorage/GoogleDrive-nkduy96@gmail.com/My Drive/Python/DAILY DATA/EVEBITDA.csv')
     ebitda.rename(columns={'DATE': 'TRADE_DATE', 'VALUE': 'EV/EBITDA'}, inplace=True)
     ebitda['TRADE_DATE'] = pd.to_datetime(ebitda['TRADE_DATE'])
 
@@ -59,8 +59,12 @@ def load_valuation_data():
     return df
 
 df = load_valuation_data()
+df['TRADE_DATE'] = pd.to_datetime(df['TRADE_DATE'])
+max_date = df['TRADE_DATE'].max()
+five_years_ago = pd.to_datetime(max_date) - pd.DateOffset(years=5)
+df = df[df.TRADE_DATE >= five_years_ago]
 
-df.to_csv('G:\My Drive\Python\Company Dashboard Project\Val_processed.csv', index=False)
+df.to_csv('/Users/duynguyen/Library/CloudStorage/GoogleDrive-nkduy96@gmail.com/My Drive/Python/Company Dashboard Project/Val_processed.csv', index=False)
 
 #%% Get market cap data
 def load_market_cap():
