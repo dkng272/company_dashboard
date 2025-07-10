@@ -8,6 +8,7 @@ from plotly.subplots import make_subplots
 df = pd.read_csv('FA_processed.csv')
 val = pd.read_csv('Val_processed.csv')
 mcap = pd.read_csv('MktCap_processed.csv')
+bank = pd.read_csv('BankSupp_processed.csv')
 
 # List creation
 IS = ['Net_Revenue','Gross_Profit', 'EBIT', 'EBITDA',  'NPATMI']
@@ -233,6 +234,40 @@ def create_margin_plots(df, ticker: str):
     fig.update_yaxes(ticksuffix="%")
     return fig
 
+def create_bank_plots(df, ticker: str):
+    df_temp = df.copy()
+    df_ticker = df_temp[df_temp.TICKER == ticker]
+    plot_cols = [col for col in ['PPOP', 'NIM', 'Loan yield', 'NPL (3-5)'] if col in df_ticker.columns]
+    if not plot_cols:
+       return go.Figure()
+    ma = df_ticker[plot_cols].rolling(window=4, min_periods=1).mean()
+    subplot_titles = [col.replace('_', ' ') for col in plot_cols]
+    n = len(plot_cols)
+    rows = (n + 1) // 2
+    colors = ['royalblue', 'darkorange', 'green', 'gray']
+    fig = make_subplots(rows=rows, cols=2, subplot_titles=subplot_titles)
+    for idx, col in enumerate(plot_cols):
+       row = idx // 2 + 1
+       col_pos = idx % 2 + 1
+       color = colors[idx % len(colors)]
+       fig.add_trace(
+           go.Bar(x=df_ticker.index, y=df_ticker[col], name=col, marker_color=color),
+           row=row, col=col_pos
+       )
+       fig.add_trace(
+           go.Scatter(x=df_ticker.index, y=ma[col], mode='lines', name=f'{col} MA(4)', line=dict(color='red')),
+           row=row, col=col_pos
+       )
+    fig.update_layout(
+       title_text="Bank Supplement Overview - " + ticker,
+       showlegend=False,
+       height=400 * rows,
+       width=1200,
+       template="plotly_white"
+    )
+    fig.update_yaxes(ticksuffix="bn")
+    return fig
+
 # Plot P/E and P/B with dotted line for average and +1 and -1 standard deviation
 def create_pe_pb_plot(df, ticker):
     df_temp = df.copy()
@@ -292,27 +327,23 @@ def extract_key_data(df1, df2, ticker):
     return key_data
 
 
-
-#%%
+#%% Streamlit App Design
 st.set_page_config(layout = 'wide', page_title="Company Dashboard")
 
 # Title
 st.title("Company Dashboard")
 
-# Side bar for ticker selection
+# Side bar for ticker selection and start year selection
 st.sidebar.header('Ticker Selection')
 selected_ticker = st.sidebar.selectbox("Select Ticker", df['TICKER'].unique())
-# Add a year selector
-years = sorted(df['YEAR'].unique())
+years = sorted(df['YEAR'].unique()) # Add a year selector
 start_year = st.sidebar.selectbox("Select Start Year", years, index=2) #defaulted to 2020
 
 # Display selected ticker as header
 st.header(f"Data for {selected_ticker}")
 
-# Add boxes to display most recent P/E, P/B, EV/EBITDA, and market cap level
+# Boxes to display most recent P/E, P/B, EV/EBITDA, and market cap level
 key_data = extract_key_data(val,mcap, selected_ticker)
-
-# Display key data
 st.subheader("Key Statistics")
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
@@ -336,14 +367,17 @@ df = df[df['YEAR'] >= start_year]
 fig_FA = create_FA_plots(df, selected_ticker)
 fig_GR = create_gr_plots(df, selected_ticker)
 fig_MARGIN = create_margin_plots(df, selected_ticker)
+fig_BANK_SUPPLEMENT = create_bank_plots(bank, selected_ticker)
 
 # Tab for 3 financial graphs
-tab1, tab2, tab3 = st.tabs(["IS", "Growth", "Margin"])
+tab1, tab2, tab3, tab4 = st.tabs(["IS", "Bank", "Growth", "Margin"])
 with tab1:
     st.plotly_chart(fig_FA)
 with tab2:
-    st.plotly_chart(fig_GR)
+    st.plotly_chart(fig_BANK_SUPPLEMENT)
 with tab3:
+    st.plotly_chart(fig_GR)
+with tab4:
     st.plotly_chart(fig_MARGIN)
 
 # Valuation Plots
