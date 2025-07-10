@@ -238,6 +238,8 @@ def create_bank_plots(df, ticker: str):
     df_temp = df.copy()
     df_ticker = df_temp[df_temp.TICKER == ticker]
     plot_cols = [col for col in ['PPOP', 'NIM', 'Loan yield', 'NPL (3-5)'] if col in df_ticker.columns]
+    for col in ['NIM','Loan yield', 'NPL (3-5)']:
+        df_ticker[col] = df_ticker[col] * 100  # Convert to percentage
     if not plot_cols:
        return go.Figure()
     ma = df_ticker[plot_cols].rolling(window=4, min_periods=1).mean()
@@ -251,11 +253,11 @@ def create_bank_plots(df, ticker: str):
        col_pos = idx % 2 + 1
        color = colors[idx % len(colors)]
        fig.add_trace(
-           go.Bar(x=df_ticker.index, y=df_ticker[col], name=col, marker_color=color),
+           go.Bar(x=df_ticker['DATE'], y=df_ticker[col], name=col, marker_color=color),
            row=row, col=col_pos
        )
        fig.add_trace(
-           go.Scatter(x=df_ticker.index, y=ma[col], mode='lines', name=f'{col} MA(4)', line=dict(color='red')),
+           go.Scatter(x=df_ticker['DATE'], y=ma[col], mode='lines', name=f'{col} MA(4)', line=dict(color='red')),
            row=row, col=col_pos
        )
     fig.update_layout(
@@ -265,7 +267,7 @@ def create_bank_plots(df, ticker: str):
        width=1200,
        template="plotly_white"
     )
-    fig.update_yaxes(ticksuffix="bn")
+    # fig.update_yaxes(ticksuffix="bn")
     return fig
 
 # Plot P/E and P/B with dotted line for average and +1 and -1 standard deviation
@@ -326,12 +328,15 @@ def extract_key_data(df1, df2, ticker):
     key_data['M_CAP'] = mcap_vals.iloc[0] if not mcap_vals.empty else None
     return key_data
 
-
 #%% Streamlit App Design
 st.set_page_config(layout = 'wide', page_title="Company Dashboard")
 
 # Title
 st.title("Company Dashboard")
+
+latest_date = pd.to_datetime(val['TRADE_DATE'].max())
+formatted_date = latest_date.strftime('%b-%d-%Y') if not pd.isnull(latest_date) else "N/A"
+st.write(f"Data last updated: {formatted_date}")
 
 # Side bar for ticker selection and start year selection
 st.sidebar.header('Ticker Selection')
@@ -340,12 +345,12 @@ years = sorted(df['YEAR'].unique()) # Add a year selector
 start_year = st.sidebar.selectbox("Select Start Year", years, index=2) #defaulted to 2020
 
 # Display selected ticker as header
-st.header(f"Data for {selected_ticker}")
+st.header(f"TICKER: {selected_ticker}")
 
 # Boxes to display most recent P/E, P/B, EV/EBITDA, and market cap level
 key_data = extract_key_data(val,mcap, selected_ticker)
 st.subheader("Key Statistics")
-col1, col2, col3, col4, col5 = st.columns(5)
+col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.metric("Market Cap", f"{key_data['M_CAP']:,.0f}" if key_data['M_CAP'] is not None else "N/A", border = True)
 with col2:
@@ -354,14 +359,15 @@ with col3:
     st.metric("P/B Ratio", f"{key_data['P/B']:,.2f}" if key_data['P/B'] is not None else "N/A", border = True)
 with col4:
     st.metric("EV/EBITDA", f"{key_data['EV/EBITDA']:,.2f}" if key_data['EV/EBITDA'] is not None else "N/A", border = True)
-with col5:
-    # Format the latest TRADE_DATE as 'Mon-Day-Year'
-    latest_date = pd.to_datetime(val['TRADE_DATE'].max())
-    formatted_date = latest_date.strftime('%b-%d-%Y') if not pd.isnull(latest_date) else "N/A"
-    st.metric("Last Data", formatted_date, border=True)
+# with col5:
+#     # Format the latest TRADE_DATE as 'Mon-Day-Year'
+#     latest_date = pd.to_datetime(val['TRADE_DATE'].max())
+#     formatted_date = latest_date.strftime('%b-%d-%Y') if not pd.isnull(latest_date) else "N/A"
+#     st.metric("Last Data", formatted_date, border=True)
 
 # Filter dataframe based on selected start year
 df = df[df['YEAR'] >= start_year]
+bank = bank[bank['YEARREPORT'] >= start_year]
 
 # Add plots below the tables
 fig_FA = create_FA_plots(df, selected_ticker)
