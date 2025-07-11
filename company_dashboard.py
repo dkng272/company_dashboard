@@ -237,8 +237,8 @@ def create_margin_plots(df, ticker: str):
 def create_bank_plots(df, ticker: str):
     df_temp = df.copy()
     df_ticker = df_temp[df_temp.TICKER == ticker]
-    plot_cols = [col for col in ['PPOP', 'NIM', 'Loan yield', 'NPL (3-5)'] if col in df_ticker.columns]
-    for col in ['NIM','Loan yield', 'NPL (3-5)']:
+    plot_cols = [col for col in ['PPOP', 'Provision for credit losses', 'COF from loan' , 'Loan yield', 'NIM', 'NPL (3-5)'] if col in df_ticker.columns]
+    for col in ['NIM','Loan yield', 'NPL (3-5)','COF from loan']:
         df_ticker[col] = df_ticker[col] * 100  # Convert to percentage
     if not plot_cols:
        return go.Figure()
@@ -333,7 +333,6 @@ st.set_page_config(layout = 'wide', page_title="Company Dashboard")
 
 # Title
 st.title("Company Dashboard")
-
 latest_date = pd.to_datetime(val['TRADE_DATE'].max())
 formatted_date = latest_date.strftime('%b-%d-%Y') if not pd.isnull(latest_date) else "N/A"
 st.write(f"Data last updated: {formatted_date}")
